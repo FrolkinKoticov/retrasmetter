@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- The app is not sandboxed (it uses ScreenCaptureKit and talks to localhost AnkiConnect).
+         Hardened runtime needs no special exceptions for it. Add keys here only if needed. -->
+</dict>
+</plist>

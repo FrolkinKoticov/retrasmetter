@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="Support/AppIcon.png" width="140" alt="Retrasmetter icon">
+</p>
 
 <h1 align="center">Retrasmetter</h1>
 
@@ -97,4 +100,4 @@ Early version. It was written without access to a Mac compiler, so expect small 
 
 ## License
 
-
+Choose a license before publishing (MIT is a common choice).
