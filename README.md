@@ -101,4 +101,4 @@ Early version. It was written without access to a Mac compiler, so expect small 
 
 ## License
 
-Choose a license before publishing (MIT is a common choice).
+
