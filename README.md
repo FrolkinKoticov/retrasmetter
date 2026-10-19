@@ -1,7 +1,3 @@
-[README.md](https://github.com/user-attachments/files/33687294/README.md)
-# retrasmetter<p align="center">
-  <img src="Support/AppIcon.png" width="140" alt="Retrasmetter icon">
-</p>
 
 <h1 align="center">Retrasmetter</h1>
 
