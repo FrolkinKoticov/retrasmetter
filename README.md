@@ -48,9 +48,10 @@ Built for learning English from games like *Persona 5*, with Russian as the defa
 
 **From a DMG:** open `Retrasmetter.dmg`, drag the app to **Applications**. For an unsigned build, right-click the app → **Open** the first time.
 
-**Homebrew** (once a release and tap exist):
+**Homebrew** (needs a GitHub release `v0.1.0` with `Retrasmetter.dmg`):
 ```bash
-brew install --cask <your-name>/tap/retrasmetter
+brew tap FrolkinKoticov/retrasmetter https://github.com/FrolkinKoticov/retrasmetter
+brew install --cask FrolkinKoticov/retrasmetter/retrasmetter
 ```
 
 **From source:**
