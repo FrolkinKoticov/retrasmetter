@@ -32,7 +32,7 @@ else
   BIN=".build/release/$EXE"
 fi
 
-echo "▸ 2/5 Assembling $APP…"
+echo "▸ 2/5 Assembling ${APP}…"
 rm -rf "$APP" "$DMG"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$DIST"
 cp "$BIN" "$APP/Contents/MacOS/$EXE"
@@ -50,7 +50,7 @@ else
   codesign --force --sign - "$APP"
 fi
 
-echo "▸ 4/5 Creating $DMG…"
+echo "▸ 4/5 Creating ${DMG}…"
 rm -rf "$STAGE"; mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
