@@ -11,7 +11,7 @@
 #   xcrun notarytool store-credentials retrasmetter-notary --apple-id you@example.com \
 #        --team-id TEAMID --password <app-specific-password>
 #
-# Optional: UNIVERSAL=0 builds only for this Mac's architecture (faster).
+# Optional: UNIVERSAL=1 builds for arm64 + x86_64 (default: this Mac's architecture only).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -24,13 +24,13 @@ DMG="$DIST/$NAME.dmg"
 STAGE="build/dmg-stage"
 
 echo "▸ 1/5 Building Release…"
-if [ "${UNIVERSAL:-1}" = "1" ]; then
-  swift build -c release --arch arm64 --arch x86_64
-  BIN=".build/apple/Products/Release/$EXE"
-else
-  swift build -c release
-  BIN=".build/release/$EXE"
-fi
+# Native architecture by default (Intel x86_64 is deprecated on the newest macOS).
+# UNIVERSAL=1 builds arm64 + x86_64.
+ARCHS_FLAGS=()
+if [ "${UNIVERSAL:-0}" = "1" ]; then ARCHS_FLAGS=(--arch arm64 --arch x86_64); fi
+swift build -c release ${ARCHS_FLAGS[@]+"${ARCHS_FLAGS[@]}"}
+BIN="$(swift build -c release ${ARCHS_FLAGS[@]+"${ARCHS_FLAGS[@]}"} --show-bin-path)/$EXE"
+[ -f "$BIN" ] || { echo "Built binary not found at $BIN"; exit 1; }
 
 echo "▸ 2/5 Assembling ${APP}…"
 rm -rf "$APP" "$DMG"
