@@ -1,6 +1,6 @@
 cask "retrasmetter" do
   version "0.1.0"
-  sha256 "0086ab2d397ecfb3a645f1cbd0b5a9197ac2550edbd2b3908436a5f0d0f5af8e"   # shasum -a 256 Retrasmetter.dmg
+  sha256 "b1d024025d94704d6c6ce8dfb84c75683cfd2d56e20b4e3eb3e0d2cf0fa58b29"   # shasum -a 256 Retrasmetter.dmg
 
   url "https://github.com/FrolkinKoticov/retrasmetter/releases/download/#{version}/retrasmetter.dmg"
   name "Retrasmetter"
