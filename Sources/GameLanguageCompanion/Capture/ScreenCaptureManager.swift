@@ -27,7 +27,7 @@ enum CaptureError: LocalizedError {
 /// One-shot screenshots of a region via ScreenCaptureKit.
 /// Nothing is written to disk and nothing runs continuously.
 final class ScreenCaptureManager: Sendable {
-    func capture(region: CaptureRegion) async throws -> CGImage {
+    func capture(region: CaptureRegion, window target: WindowCaptureTarget? = nil) async throws -> CGImage {
         guard region.width >= 4, region.height >= 4 else { throw CaptureError.invalidRegion }
 
         let content: SCShareableContent
@@ -47,10 +47,16 @@ final class ScreenCaptureManager: Sendable {
         // Exclude our own windows so the translation overlay never ends up in the OCR input.
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let ownApps = content.applications.filter { $0.processID == ownPID }
-        let filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
-
-        let displayBounds = CGRect(x: 0, y: 0, width: CGFloat(display.width), height: CGFloat(display.height))
-        let rect = region.rect.intersection(displayBounds)
+        var filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
+        var captureBounds = CGRect(x: 0, y: 0, width: CGFloat(display.width), height: CGFloat(display.height))
+        var wanted = region.rect
+        // Prefer the game window itself: unaffected by whatever is in front of or behind it.
+        if let target, let window = content.windows.first(where: { $0.windowID == target.windowID }) {
+            filter = SCContentFilter(desktopIndependentWindow: window)
+            captureBounds = CGRect(x: 0, y: 0, width: window.frame.width, height: window.frame.height)
+            wanted = target.rect
+        }
+        let rect = wanted.intersection(captureBounds)
         guard !rect.isNull, rect.width >= 4, rect.height >= 4 else { throw CaptureError.invalidRegion }
 
         let displayID = display.displayID

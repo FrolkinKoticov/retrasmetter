@@ -84,6 +84,7 @@ final class AppState: ObservableObject {
         if #available(macOS 15.0, *) { AppleTranslationBridge.shared.installHostIfNeeded() }
         #endif
 
+        coordinator.windowTargetProvider = { [profiles] in await profiles.windowTarget() }
         profiles.migrateIfNeeded(gameName: gameContext.currentGameName())
         hotkeys.onTrigger = { [weak self] in self?.reading.toggle() }
         hotkeys.onEscape = { [weak self] in self?.reading.escapePressed() }

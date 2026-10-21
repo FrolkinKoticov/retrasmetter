@@ -82,7 +82,7 @@ final class DialogueMonitor: ObservableObject {
 
         state = .starting
         do {
-            try await beginStream(region: region)
+            try await beginStream(region: region, window: await profiles.windowTarget())
             guard token == generation else { await teardown(); return }
             state = .active
             startWatchingWindow()
@@ -115,7 +115,7 @@ final class DialogueMonitor: ObservableObject {
               let region = await profiles.resolvedRegion() ?? settings.captureRegion,
               let frame = region.screenFrame else { return }
         do {
-            let image = try await ScreenCaptureManager().capture(region: region)
+            let image = try await ScreenCaptureManager().capture(region: region, window: await profiles.windowTarget())
             let result = try await VisionWordOCR(language: settings.ocrLanguage).recognizeWords(in: image)
             lastFrame = image
             apply(result, frame: frame, force: true)
@@ -126,7 +126,7 @@ final class DialogueMonitor: ObservableObject {
 
     // MARK: Stream
 
-    private func beginStream(region: CaptureRegion) async throws {
+    private func beginStream(region: CaptureRegion, window target: WindowCaptureTarget?) async throws {
         let content: SCShareableContent
         do {
             content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
@@ -140,10 +140,16 @@ final class DialogueMonitor: ObservableObject {
         // Our own windows (Reading Mode, popups) must never end up in the OCR input.
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let ownApps = content.applications.filter { $0.processID == ownPID }
-        let filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
-
-        let bounds = CGRect(x: 0, y: 0, width: CGFloat(display.width), height: CGFloat(display.height))
-        let rect = region.rect.intersection(bounds)
+        var filter = SCContentFilter(display: display, excludingApplications: ownApps, exceptingWindows: [])
+        var bounds = CGRect(x: 0, y: 0, width: CGFloat(display.width), height: CGFloat(display.height))
+        var wanted = region.rect
+        // Capture the game window itself when we know it: what is covering or behind it does not matter.
+        if let target, let window = content.windows.first(where: { $0.windowID == target.windowID }) {
+            filter = SCContentFilter(desktopIndependentWindow: window)
+            bounds = CGRect(x: 0, y: 0, width: window.frame.width, height: window.frame.height)
+            wanted = target.rect
+        }
+        let rect = wanted.intersection(bounds)
         guard !rect.isNull, rect.width >= 4, rect.height >= 4 else { throw CaptureError.invalidRegion }
 
         let displayID = display.displayID

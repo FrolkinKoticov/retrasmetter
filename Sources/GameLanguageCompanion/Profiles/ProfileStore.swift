@@ -127,6 +127,16 @@ final class ProfileStore: ObservableObject {
         return result
     }
 
+    /// When the active profile has a game window and a window-relative area, capture that window
+    /// directly: its own pixels are returned even if another window covers it or sits behind it.
+    func windowTarget() async -> WindowCaptureTarget? {
+        guard let profile = activeProfile, let relative = profile.relativeRegion,
+              let windows = try? await WindowCatalog.visibleWindows(),
+              let window = WindowCatalog.find(for: profile, in: windows) else { return nil }
+        return WindowCaptureTarget(windowID: window.id,
+                                   rect: CGRect(x: relative.dx, y: relative.dy, width: relative.width, height: relative.height))
+    }
+
     // MARK: Helpers
 
     private func apply(window: GameWindowInfo?, to profile: inout GameProfile) {

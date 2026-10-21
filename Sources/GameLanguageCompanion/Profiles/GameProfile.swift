@@ -33,6 +33,12 @@ struct GameProfile: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+/// Capture the game window itself; `rect` is the dialogue area in window-local points (top-left origin).
+struct WindowCaptureTarget: Equatable, Sendable {
+    let windowID: UInt32
+    let rect: CGRect
+}
+
 /// A visible window the user can pick as "the game".
 struct GameWindowInfo: Identifiable, Hashable, Sendable {
     let id: UInt32

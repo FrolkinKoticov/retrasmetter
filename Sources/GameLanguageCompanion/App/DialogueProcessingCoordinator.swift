@@ -22,6 +22,9 @@ final class DialogueProcessingCoordinator {
 
     private var isProcessing = false
 
+    /// Set by AppState: the game window to capture directly, when the profile has one.
+    var windowTargetProvider: (() async -> WindowCaptureTarget?)?
+
     init(
         settings: AppSettings, permissions: PermissionManager, capture: ScreenCaptureManager,
         ocrProvider: @escaping () -> any OCRService,
@@ -47,7 +50,7 @@ final class DialogueProcessingCoordinator {
         guard let region = settings.captureRegion else { throw CaptureError.noRegion }
         permissions.refresh()
         guard permissions.hasScreenRecordingAccess else { throw CaptureError.permissionDenied }
-        let image = try await capture.capture(region: region)
+        let image = try await capture.capture(region: region, window: await windowTargetProvider?())
         let raw = try await ocrProvider().recognizeText(in: image)
         let cleaned = OCRTextCleaner(detectSpeakerLabel: settings.detectSpeakerLabel).clean(raw)
         return cleaned.text.isEmpty ? raw.trimmingCharacters(in: .whitespacesAndNewlines) : cleaned.text
@@ -74,7 +77,7 @@ final class DialogueProcessingCoordinator {
         overlay.present(.working(tr("Reading dialogue…")), near: region)
 
         do {
-            let image = try await capture.capture(region: region)
+            let image = try await capture.capture(region: region, window: await windowTargetProvider?())
             let raw = try await ocrProvider().recognizeText(in: image)
             let cleaned = OCRTextCleaner(detectSpeakerLabel: settings.detectSpeakerLabel).clean(raw)
             guard !cleaned.isEmpty else {
