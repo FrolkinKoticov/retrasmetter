@@ -134,7 +134,8 @@ final class ProfileStore: ObservableObject {
               let windows = try? await WindowCatalog.visibleWindows(),
               let window = WindowCatalog.find(for: profile, in: windows) else { return nil }
         return WindowCaptureTarget(windowID: window.id,
-                                   rect: CGRect(x: relative.dx, y: relative.dy, width: relative.width, height: relative.height))
+                                   rect: CGRect(x: relative.dx, y: relative.dy, width: relative.width, height: relative.height),
+                                   windowFrame: window.frame)
     }
 
     // MARK: Helpers

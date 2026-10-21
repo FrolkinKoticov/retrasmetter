@@ -37,6 +37,8 @@ struct GameProfile: Codable, Identifiable, Equatable, Sendable {
 struct WindowCaptureTarget: Equatable, Sendable {
     let windowID: UInt32
     let rect: CGRect
+    /// The window's frame in Quartz global coordinates when the target was resolved (to notice moves).
+    var windowFrame: CGRect = .zero
 }
 
 /// A visible window the user can pick as "the game".
@@ -64,6 +66,13 @@ enum WindowCatalog {
                                   bundleID: app.bundleIdentifier, title: window.title ?? "", frame: window.frame)
         }
         .sorted { $0.appName.localizedCaseInsensitiveCompare($1.appName) == .orderedAscending }
+    }
+
+    /// Current frame of a window (Quartz global coordinates), or nil if it is gone. Very cheap — used for polling.
+    static func currentFrame(ofWindow id: UInt32) -> CGRect? {
+        guard let list = CGWindowListCopyWindowInfo([.optionIncludingWindow], CGWindowID(id)) as? [[String: Any]],
+              let info = list.first, let bounds = info[kCGWindowBounds as String] as? [String: Any] else { return nil }
+        return CGRect(dictionaryRepresentation: bounds as CFDictionary)
     }
 
     /// Finds the profile's window: same window id first, then same app (and title when possible).

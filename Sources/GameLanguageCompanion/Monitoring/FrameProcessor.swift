@@ -30,7 +30,8 @@ final class FrameProcessor: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
 
     private let lock = NSLock()
     private var latestImage: CGImage?
-    private var referenceImage: CGImage?
+    private var referenceSignature: FrameSignature?
+    private var suspended = false
     private var pending = false
     private var firstChange = Date.distantPast
     private var lastChange = Date.distantPast
@@ -47,7 +48,7 @@ final class FrameProcessor: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
 
     func startTicking() {
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + 0.2, repeating: 0.2)
+        timer.schedule(deadline: .now() + 0.25, repeating: 0.25, leeway: .milliseconds(100))
         timer.setEventHandler { [weak self] in self?.tick() }
         timer.resume()
         self.timer = timer
@@ -58,28 +59,47 @@ final class FrameProcessor: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         timer = nil
         lock.lock()
         latestImage = nil
-        referenceImage = nil
+        referenceSignature = nil
         pending = false
         lock.unlock()
+    }
+
+    /// While suspended (the game is not the frontmost app) incoming frames are dropped immediately.
+    func setSuspended(_ value: Bool) {
+        lock.lock()
+        suspended = value
+        if value { pending = false }
+        lock.unlock()
+    }
+
+    private var isSuspended: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return suspended
     }
 
     // MARK: SCStreamOutput
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
-        guard type == .screen, isCompleteFrame(sampleBuffer),
+        guard type == .screen, !isSuspended, isCompleteFrame(sampleBuffer),
               let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        // Cheap fingerprint first; a full-size image is only made when something really changed.
+        let signature = detector.signature(of: pixelBuffer)
+        lock.lock()
+        let changed = signature.map { detector.isMeaningfulChange(from: referenceSignature, to: $0) } ?? true
+        lock.unlock()
+        guard changed else { return }
+
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
         guard let image = ciContext.createCGImage(ciImage, from: ciImage.extent) else { return }
 
         lock.lock()
         defer { lock.unlock() }
         latestImage = image
-        if detector.hasMeaningfulChange(previous: referenceImage, current: image) {
-            referenceImage = image
-            let now = Date()
-            if !pending { pending = true; firstChange = now }
-            lastChange = now
-        }
+        referenceSignature = signature
+        let now = Date()
+        if !pending { pending = true; firstChange = now }
+        lastChange = now
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {

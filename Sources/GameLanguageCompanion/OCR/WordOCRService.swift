@@ -20,10 +20,12 @@ struct WordOCRResult: Sendable {
 /// Local OCR with word-level bounding boxes (Apple Vision, no network).
 struct VisionWordOCR: Sendable {
     var language: Language = .english
+    /// Passive monitoring runs at `.utility` so it never competes with the game for CPU.
+    var priority: TaskPriority = .userInitiated
 
     func recognizeWords(in image: CGImage) async throws -> WordOCRResult {
         let languageCode = language.visionCode
-        return try await Task.detached(priority: .userInitiated) { () throws -> WordOCRResult in
+        return try await Task.detached(priority: priority) { () throws -> WordOCRResult in
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true

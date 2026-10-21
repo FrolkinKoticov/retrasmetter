@@ -32,6 +32,9 @@ final class DialogueMonitor: ObservableObject {
     private var userPaused = false
     private var generation = 0
     private var watchTask: Task<Void, Never>?
+    private var watchedTarget: WindowCaptureTarget?
+    private var activationObserver: NSObjectProtocol?
+    private var suspended = false
 
     init(settings: AppSettings, permissions: PermissionManager, profiles: ProfileStore,
          gameContext: GameContextManager, history: HistoryRepository) {
@@ -82,10 +85,13 @@ final class DialogueMonitor: ObservableObject {
 
         state = .starting
         do {
-            try await beginStream(region: region, window: await profiles.windowTarget())
+            let target = await profiles.windowTarget()
+            try await beginStream(region: region, window: target)
             guard token == generation else { await teardown(); return }
+            watchedTarget = target
             state = .active
             startWatchingWindow()
+            startObservingFrontmostApp()
         } catch {
             state = .failed(error.localizedDescription)
         }
@@ -196,6 +202,10 @@ final class DialogueMonitor: ObservableObject {
     private func teardown() async {
         watchTask?.cancel()
         watchTask = nil
+        watchedTarget = nil
+        if let activationObserver { NSWorkspace.shared.notificationCenter.removeObserver(activationObserver) }
+        activationObserver = nil
+        suspended = false
         processor?.stopTicking()
         processor?.onStableFrame = nil
         if let stream {
@@ -208,13 +218,15 @@ final class DialogueMonitor: ObservableObject {
     }
 
     /// If the game window moves or resizes, the window-relative dialogue area moves with it.
+    /// Polling uses `CGWindowListCopyWindowInfo` (a few microseconds) instead of ScreenCaptureKit queries,
+    /// and is skipped while the game is in the background.
     private func startWatchingWindow() {
         guard profiles.activeProfile?.relativeRegion != nil else { return }
         watchTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 4_000_000_000)
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
                 guard let self, !Task.isCancelled else { return }
-                if let region = await self.profiles.resolvedRegion(), region != self.streamRegion {
+                if await self.windowChanged() {
                     await self.restart()
                     return
                 }
@@ -222,12 +234,49 @@ final class DialogueMonitor: ObservableObject {
         }
     }
 
+    private func windowChanged() async -> Bool {
+        if let target = watchedTarget {
+            guard let frame = WindowCatalog.currentFrame(ofWindow: target.windowID) else { return true }   // window closed
+            let old = target.windowFrame
+            return abs(frame.minX - old.minX) > 1 || abs(frame.minY - old.minY) > 1
+                || abs(frame.width - old.width) > 1 || abs(frame.height - old.height) > 1
+        }
+        // The game window was not found when monitoring started (game launched later?).
+        return suspended ? false : await profiles.windowTarget() != nil
+    }
+
+    // MARK: Background suspension
+
+    /// Frames are only worth processing while the game is the frontmost app. When it is not, the stream
+    /// callback drops frames immediately; when it comes back we do one catch-up read.
+    private func startObservingFrontmostApp() {
+        guard profiles.activeProfile?.windowBundleID != nil else { return }
+        updateSuspension()
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateSuspension() }
+        }
+    }
+
+    private func updateSuspension() {
+        guard let bundle = profiles.activeProfile?.windowBundleID else { return }
+        let shouldSuspend = NSWorkspace.shared.frontmostApplication?.bundleIdentifier != bundle
+        guard shouldSuspend != suspended else { return }       // no change
+        suspended = shouldSuspend
+        processor?.setSuspended(shouldSuspend)
+        if !shouldSuspend, isMonitoring {
+            Task { await refreshNow() }                        // content may have changed while we were not looking
+        }
+    }
+    }
+
     // MARK: Recognition
 
     private func process(image: CGImage, region: CaptureRegion, language: Language) async {
         guard isMonitoring, let frame = region.screenFrame else { return }
         do {
-            let result = try await VisionWordOCR(language: language).recognizeWords(in: image)
+            let result = try await VisionWordOCR(language: language, priority: .utility).recognizeWords(in: image)
             lastFrame = image
             apply(result, frame: frame, force: false)
         } catch {
