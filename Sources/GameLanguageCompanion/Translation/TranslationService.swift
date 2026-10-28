@@ -19,6 +19,15 @@ protocol TranslationService: Sendable {
         to targetLanguage: Language
     ) async throws -> TranslationResult
 
+    /// Translates one dialogue line for live subtitles. `previous` are the lines before it, so providers
+    /// that understand context can keep names, tone and pronouns consistent.
+    func translateDialogue(
+        _ text: String,
+        previous: [String],
+        from sourceLanguage: Language,
+        to targetLanguage: Language
+    ) async throws -> TranslationResult
+
     /// Verifies that the provider is usable (for cloud providers: that the API key works).
     /// Free/local providers have nothing to verify, so the default does nothing.
     func testConnection() async throws
@@ -31,6 +40,12 @@ extension TranslationService {
         selection: String, context: String, from sourceLanguage: Language, to targetLanguage: Language
     ) async throws -> TranslationResult {
         try await translate(selection, from: sourceLanguage, to: targetLanguage)
+    }
+
+    func translateDialogue(
+        _ text: String, previous: [String], from sourceLanguage: Language, to targetLanguage: Language
+    ) async throws -> TranslationResult {
+        try await translate(text, from: sourceLanguage, to: targetLanguage)
     }
 }
 
@@ -49,6 +64,18 @@ struct FallbackTranslationService: TranslationService {
         for provider in providers {
             do {
                 return try await provider.translate(text, from: sourceLanguage, to: targetLanguage)
+            } catch {
+                failures.append("\(provider.name): \(error.localizedDescription)")
+            }
+        }
+        throw TranslationError.allFailed(failures)
+    }
+
+    func translateDialogue(_ text: String, previous: [String], from sourceLanguage: Language, to targetLanguage: Language) async throws -> TranslationResult {
+        var failures: [String] = []
+        for provider in providers {
+            do {
+                return try await provider.translateDialogue(text, previous: previous, from: sourceLanguage, to: targetLanguage)
             } catch {
                 failures.append("\(provider.name): \(error.localizedDescription)")
             }

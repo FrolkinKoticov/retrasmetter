@@ -43,6 +43,45 @@ struct OpenAITranslationService: TranslationService, ExplanationProviding {
                                  sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, provider: name)
     }
 
+    /// Live subtitles: translate one line, with the previous lines for consistency of names and pronouns.
+    func translateDialogue(_ text: String, previous: [String], from sourceLanguage: Language, to targetLanguage: Language) async throws -> TranslationResult {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw TranslationError.emptyText }
+
+        var request = try makeRequest(path: "/chat/completions")
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let english = Locale(identifier: "en")
+        let from = english.localizedString(forLanguageCode: sourceLanguage.code) ?? sourceLanguage.code
+        let to = english.localizedString(forLanguageCode: targetLanguage.code) ?? targetLanguage.code
+        let system = "You are a subtitle translator for a video game. Translate the LAST line from \(from) to \(to). "
+            + "Earlier lines are only context: keep names, forms of address, gender and tone consistent with them. "
+            + "Keep it short and natural, as subtitles. Reply with the translation of the last line only."
+        var user = ""
+        if !previous.isEmpty { user += "Earlier lines:\n" + previous.suffix(4).joined(separator: "\n") + "\n\n" }
+        user += "Last line:\n" + trimmed
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "model": model,
+            "temperature": 0.2,
+            "messages": [
+                ["role": "system", "content": system],
+                ["role": "user", "content": user]
+            ]
+        ] as [String: Any])
+
+        let data = try await send(request)
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = object["choices"] as? [[String: Any]],
+              let message = choices.first?["message"] as? [String: Any],
+              let content = (message["content"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !content.isEmpty else {
+            throw TranslationError.providerFailed(tr("Unexpected response from OpenAI."))
+        }
+        return TranslationResult(sourceText: trimmed, translatedText: content,
+                                 sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, provider: name)
+    }
+
     /// Context-aware translation of a word or phrase. Asks for a small JSON object so the popup
     /// can show the normalized expression and part of speech too.
     func translateSelection(selection: String, context: String, from sourceLanguage: Language, to targetLanguage: Language) async throws -> TranslationResult {

@@ -161,6 +161,12 @@ struct SettingsView: View {
                 Text(String(format: "%.1f s", settings.ocrCooldown)).frame(width: 50, alignment: .trailing)
             }
             Toggle(tr("Save Dialogue History"), isOn: $settings.saveHistory)
+            HStack {
+                Text(tr("Subtitle text size"))
+                Slider(value: $settings.subtitleFontSize, in: 14...40, step: 1)
+                Text("\(Int(settings.subtitleFontSize))").frame(width: 50, alignment: .trailing)
+            }
+            Toggle(tr("Show subtitles above the dialogue"), isOn: $settings.subtitlesAbove)
             Text(tr("Only the dialogue area is watched, and only while the text changes. Frames stay in memory and are never saved."))
                 .font(.caption).foregroundStyle(.secondary)
         }

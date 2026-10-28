@@ -25,6 +25,8 @@ struct GameProfile: Codable, Identifiable, Equatable, Sendable {
     var sourceLanguageCode: String
     var targetLanguageCode: String
     var monitoringEnabled = true
+    /// Live subtitles: every new dialogue line is translated automatically (nil/false = learning mode only).
+    var subtitlesEnabled: Bool?
 
     var windowDescription: String? {
         guard let owner = windowOwner else { return nil }

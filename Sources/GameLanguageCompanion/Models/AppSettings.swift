@@ -111,6 +111,9 @@ final class AppSettings: ObservableObject {
     /// Minimum time between two OCR runs.
     @Published var ocrCooldown: Double { didSet { Self.set(ocrCooldown, "ocrCooldown") } }
     @Published var saveHistory: Bool { didSet { Self.set(saveHistory, "saveHistory") } }
+    @Published var subtitleFontSize: Double { didSet { Self.set(subtitleFontSize, "subtitleFontSize") } }
+    /// Subtitles above the dialogue instead of below it.
+    @Published var subtitlesAbove: Bool { didSet { Self.set(subtitlesAbove, "subtitlesAbove") } }
 
     // MARK: Capture
     @Published var captureRegion: CaptureRegion? { didSet { Self.store(captureRegion, "captureRegion") } }
@@ -162,6 +165,8 @@ final class AppSettings: ObservableObject {
         stabilityDelay = Self.double("stabilityDelay", 0.6)
         ocrCooldown = Self.double("ocrCooldown", 0.5)
         saveHistory = Self.bool("saveHistory", true)
+        subtitleFontSize = Self.double("subtitleFontSize", 22)
+        subtitlesAbove = Self.bool("subtitlesAbove", false)
         captureRegion = Self.load(CaptureRegion.self, "captureRegion")
         hotkeyKey = Self.string("hotkeyKey", "Q")
         hotkeyModifiers = HotkeyModifiers(rawValue: Self.string("hotkeyModifiers", "")) ?? .option

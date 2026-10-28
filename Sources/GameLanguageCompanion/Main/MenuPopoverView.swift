@@ -9,6 +9,7 @@ struct MenuPopoverView: View {
     @ObservedObject var permissions: PermissionManager
     @ObservedObject var monitor: DialogueMonitor
     @ObservedObject var reading: ReadingModeController
+    @ObservedObject var profiles: ProfileStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -30,6 +31,11 @@ struct MenuPopoverView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+
+            Toggle(tr("Live subtitles"), isOn: Binding(
+                get: { appState.subtitles.isEnabled },
+                set: { _ in appState.toggleSubtitles() }))
+                .toggleStyle(.switch).controlSize(.small)
 
             Button {
                 appState.toggleMonitoring()

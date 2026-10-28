@@ -22,6 +22,12 @@ struct DeepLTranslationService: TranslationService {
         try await translate(selection, context: context, from: sourceLanguage, to: targetLanguage)
     }
 
+    /// The previous lines go into DeepL's `context` parameter (not billed, not translated).
+    func translateDialogue(_ text: String, previous: [String], from sourceLanguage: Language, to targetLanguage: Language) async throws -> TranslationResult {
+        let context = previous.suffix(3).joined(separator: " ")
+        return try await translate(text, context: context.isEmpty ? nil : context, from: sourceLanguage, to: targetLanguage)
+    }
+
     private func translate(_ text: String, context: String?, from sourceLanguage: Language, to targetLanguage: Language) async throws -> TranslationResult {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw TranslationError.emptyText }

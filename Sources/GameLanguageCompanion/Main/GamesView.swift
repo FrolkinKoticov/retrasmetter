@@ -129,6 +129,19 @@ struct GamesView: View {
                     }
 
                     Toggle(tr("Monitor this game"), isOn: binding(profile, \.monitoringEnabled))
+                    Toggle(isOn: Binding(
+                        get: { profile.subtitlesEnabled ?? false },
+                        set: { value in
+                            guard var updated = profiles.profiles.first(where: { $0.id == profile.id }) else { return }
+                            updated.subtitlesEnabled = value
+                            profiles.update(updated)
+                        })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tr("Live subtitles"))
+                            Text(tr("Translate every dialogue line automatically and show it next to the dialogue."))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
 
                     HStack {
                         Button(tr("Activate")) { profiles.activate(profile.id) }

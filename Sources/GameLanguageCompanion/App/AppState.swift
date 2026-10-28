@@ -24,6 +24,7 @@ final class AppState: ObservableObject {
     let profiles: ProfileStore
     let monitor: DialogueMonitor
     let reading: ReadingModeController
+    let subtitles: SubtitleController
 
     private var cancellables = Set<AnyCancellable>()
     private var started = false
@@ -53,6 +54,8 @@ final class AppState: ObservableObject {
             ankiProvider: { AnkiConnectService(urlString: settings.ankiURL) })
         self.profiles = profiles
         self.monitor = monitor
+        self.subtitles = SubtitleController(monitor: monitor, settings: settings, profiles: profiles,
+                                            translationProvider: translationProvider)
         self.reading = ReadingModeController(monitor: monitor, settings: settings, overlay: overlay, popupModel: popupModel)
         self.gameContext = gameContext
         self.settings = settings
@@ -84,6 +87,9 @@ final class AppState: ObservableObject {
         if #available(macOS 15.0, *) { AppleTranslationBridge.shared.installHostIfNeeded() }
         #endif
 
+        reading.$isActive
+            .sink { [weak self] active in self?.subtitles.setSuppressed(active) }
+            .store(in: &cancellables)
         coordinator.windowTargetProvider = { [profiles] in await profiles.windowTarget() }
         profiles.migrateIfNeeded(gameName: gameContext.currentGameName())
         hotkeys.onTrigger = { [weak self] in self?.reading.toggle() }
@@ -124,6 +130,14 @@ final class AppState: ObservableObject {
         if !settings.monitoringEnabled { await monitor.stop(); return }
         if monitor.state == .paused { return }
         await monitor.restart()
+    }
+
+    /// Live subtitles on/off for the active game profile (creates a profile if there is none yet).
+    func toggleSubtitles() {
+        if profiles.activeProfile == nil { profiles.createProfile(name: gameContext.currentGameName() ?? "My Game") }
+        guard var profile = profiles.activeProfile else { return }
+        profile.subtitlesEnabled = !(profile.subtitlesEnabled ?? false)
+        profiles.update(profile)
     }
 
     func toggleMonitoring() {

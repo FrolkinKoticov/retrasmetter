@@ -13,7 +13,8 @@ struct GameLanguageCompanionApp: App {
         MenuBarExtra("Retrasmetter", systemImage: "text.bubble", isInserted: $showMenuBarIcon) {
             MenuPopoverView(appState: appState, settings: appState.settings,
                             status: appState.status, permissions: appState.permissions,
-                            monitor: appState.monitor, reading: appState.reading)
+                            monitor: appState.monitor, reading: appState.reading,
+                            profiles: appState.profiles)
         }
         .menuBarExtraStyle(.window)
     }
