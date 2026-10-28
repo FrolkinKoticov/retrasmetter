@@ -11,6 +11,8 @@ protocol FrameChangeDetector: Sendable {
     func signature(of pixelBuffer: CVPixelBuffer) -> FrameSignature?
     func signature(of image: CGImage) -> FrameSignature?
     func isMeaningfulChange(from previous: FrameSignature?, to current: FrameSignature) -> Bool
+    /// How many grid cells changed noticeably (used to tell "text is being typed" from tiny blinking icons).
+    func changedCellCount(from previous: FrameSignature?, to current: FrameSignature) -> Int
 }
 
 extension FrameChangeDetector {
@@ -41,6 +43,13 @@ final class LuminanceFrameChangeDetector: FrameChangeDetector, @unchecked Sendab
             if changed >= minimumChangedCells { return true }
         }
         return false
+    }
+
+    func changedCellCount(from previous: FrameSignature?, to current: FrameSignature) -> Int {
+        guard let previous, previous.count == current.count else { return current.count }
+        var changed = 0
+        for index in 0..<current.count where abs(Int(previous[index]) - Int(current[index])) > cellThreshold { changed += 1 }
+        return changed
     }
 
     func signature(of pixelBuffer: CVPixelBuffer) -> FrameSignature? {

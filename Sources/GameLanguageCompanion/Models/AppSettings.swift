@@ -113,6 +113,9 @@ final class AppSettings: ObservableObject {
     @Published var saveHistory: Bool { didSet { Self.set(saveHistory, "saveHistory") } }
     @Published var subtitleFontSize: Double { didSet { Self.set(subtitleFontSize, "subtitleFontSize") } }
     /// Subtitles above the dialogue instead of below it.
+    /// Replace the original text in place, matching the game's colors (default) instead of a separate bar.
+    @Published var subtitleReplaceInPlace: Bool { didSet { Self.set(subtitleReplaceInPlace, "subtitleReplaceInPlace") } }
+    @Published var subtitleHotkeyKey: String { didSet { Self.set(subtitleHotkeyKey, "subtitleHotkeyKey") } }
     @Published var subtitlesAbove: Bool { didSet { Self.set(subtitlesAbove, "subtitlesAbove") } }
 
     // MARK: Capture
@@ -167,6 +170,8 @@ final class AppSettings: ObservableObject {
         saveHistory = Self.bool("saveHistory", true)
         subtitleFontSize = Self.double("subtitleFontSize", 22)
         subtitlesAbove = Self.bool("subtitlesAbove", false)
+        subtitleReplaceInPlace = Self.bool("subtitleReplaceInPlace", true)
+        subtitleHotkeyKey = Self.string("subtitleHotkeyKey", "W")
         captureRegion = Self.load(CaptureRegion.self, "captureRegion")
         hotkeyKey = Self.string("hotkeyKey", "Q")
         hotkeyModifiers = HotkeyModifiers(rawValue: Self.string("hotkeyModifiers", "")) ?? .option
@@ -191,6 +196,7 @@ final class AppSettings: ObservableObject {
     }
 
     var hotkeyDescription: String { hotkeyModifiers.symbols + hotkeyKey }
+    var subtitleHotkeyDescription: String { hotkeyModifiers.symbols + subtitleHotkeyKey }
 
     /// The language Vision should expect.
     var ocrLanguage: Language { ocrLanguageCode.isEmpty ? sourceLanguage : Language(code: ocrLanguageCode) }

@@ -19,6 +19,8 @@ final class DialogueMonitor: ObservableObject {
     @Published private(set) var ocrRunCount = 0
     /// The most recent frame that was sent to OCR (debug preview only; replaced each time).
     @Published private(set) var lastFrame: CGImage?
+    /// Fires while the dialogue area is visibly changing (a line being typed or replaced).
+    let activity = PassthroughSubject<Void, Never>()
 
     private let settings: AppSettings
     private let permissions: PermissionManager
@@ -161,7 +163,9 @@ final class DialogueMonitor: ObservableObject {
         let displayID = display.displayID
         let scale = NSScreen.screens.first(where: { $0.displayID == displayID })?.backingScaleFactor ?? 2.0
 
-        let frequency = min(max(settings.monitoringFrequency, 1), 4)
+        // Live subtitles want the shortest sensible delay; otherwise the user's settings apply.
+        let live = profiles.activeProfile?.subtitlesEnabled == true
+        let frequency = live ? 4 : min(max(settings.monitoringFrequency, 1), 4)
         let configuration = SCStreamConfiguration()
         configuration.sourceRect = rect
         configuration.width = max(1, Int((rect.width * scale).rounded()))
@@ -172,7 +176,8 @@ final class DialogueMonitor: ObservableObject {
         configuration.pixelFormat = kCVPixelFormatType_32BGRA
 
         let processor = FrameProcessor(
-            timing: .init(stabilityDelay: settings.stabilityDelay, cooldown: settings.ocrCooldown),
+            timing: .init(stabilityDelay: live ? min(settings.stabilityDelay, 0.35) : settings.stabilityDelay,
+                          cooldown: live ? min(settings.ocrCooldown, 0.2) : settings.ocrCooldown),
             detector: LuminanceFrameChangeDetector())
         let language = settings.ocrLanguage
         let frameRegion = region
@@ -181,6 +186,9 @@ final class DialogueMonitor: ObservableObject {
                 await self?.process(image: image, region: frameRegion, language: language)
                 done()
             }
+        }
+        processor.onActivity = { [weak self] in
+            Task { @MainActor in self?.activity.send() }
         }
         processor.onStop = { [weak self] error in
             Task { @MainActor in

@@ -45,12 +45,14 @@ enum HotkeyKeys {
 final class HotkeyManager: @unchecked Sendable {
     var onTrigger: (@MainActor () -> Void)?
     var onEscape: (@MainActor () -> Void)?
+    var onSubtitles: (@MainActor () -> Void)?
 
     private var mainRef: EventHotKeyRef?
     private var escapeRef: EventHotKeyRef?
+    private var subtitlesRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
 
-    private enum ID: UInt32 { case main = 1, escape = 2 }
+    private enum ID: UInt32 { case main = 1, escape = 2, subtitles = 3 }
 
     deinit {
         unregister()
@@ -67,6 +69,17 @@ final class HotkeyManager: @unchecked Sendable {
         let status = RegisterEventHotKey(keyCode, modifiers.carbonFlags, hotKeyID,
                                          GetApplicationEventTarget(), 0, &mainRef)
         return status == noErr
+    }
+
+    /// Second hotkey: live subtitles on/off. Returns false if macOS refuses the combination.
+    @discardableResult
+    func registerSubtitles(key: String, modifiers: HotkeyModifiers) -> Bool {
+        if let subtitlesRef { UnregisterEventHotKey(subtitlesRef) }
+        subtitlesRef = nil
+        guard let keyCode = HotkeyKeys.letterKeyCodes[key.uppercased()], installHandlerIfNeeded() else { return false }
+        let hotKeyID = EventHotKeyID(signature: OSType(0x474C4348), id: ID.subtitles.rawValue)
+        return RegisterEventHotKey(keyCode, modifiers.carbonFlags, hotKeyID,
+                                   GetApplicationEventTarget(), 0, &subtitlesRef) == noErr
     }
 
     func unregister() {
@@ -105,7 +118,12 @@ final class HotkeyManager: @unchecked Sendable {
     }
 
     private func fire(id: UInt32) {
-        let callback = id == ID.escape.rawValue ? onEscape : onTrigger
+        let callback: (@MainActor () -> Void)?
+        switch id {
+        case ID.escape.rawValue: callback = onEscape
+        case ID.subtitles.rawValue: callback = onSubtitles
+        default: callback = onTrigger
+        }
         Task { @MainActor in callback?() }
     }
 }

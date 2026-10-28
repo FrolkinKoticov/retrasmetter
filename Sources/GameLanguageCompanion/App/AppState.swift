@@ -95,8 +95,22 @@ final class AppState: ObservableObject {
         hotkeys.onTrigger = { [weak self] in self?.reading.toggle() }
         hotkeys.onEscape = { [weak self] in self?.reading.escapePressed() }
         reading.setEscapeHotkey = { [weak self] enabled in self?.hotkeys.setEscapeEnabled(enabled) }
+        hotkeys.onSubtitles = { [weak self] in self?.toggleSubtitles(announce: true) }
         registerHotkey(key: settings.hotkeyKey, modifiers: settings.hotkeyModifiers)
+        registerSubtitleHotkey()
         showStartupWindow()
+        Publishers.CombineLatest(settings.$subtitleHotkeyKey, settings.$hotkeyModifiers)
+            .dropFirst()
+            .sink { [weak self] _, _ in self?.registerSubtitleHotkey() }
+            .store(in: &cancellables)
+        // Live subtitles use faster timing: restart the stream when the mode flips.
+        profiles.$profiles
+            .map { [profiles] list in list.first(where: { $0.id == profiles.activeProfileID })?.subtitlesEnabled == true }
+            .removeDuplicates()
+            .dropFirst()
+            .debounce(for: .seconds(0.3), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in Task { await self?.restartMonitoring() } }
+            .store(in: &cancellables)
         Publishers.CombineLatest(settings.$hotkeyKey, settings.$hotkeyModifiers)
             .dropFirst()
             .sink { [weak self] key, modifiers in self?.registerHotkey(key: key, modifiers: modifiers) }
@@ -133,11 +147,16 @@ final class AppState: ObservableObject {
     }
 
     /// Live subtitles on/off for the active game profile (creates a profile if there is none yet).
-    func toggleSubtitles() {
+    func toggleSubtitles(announce: Bool = false) {
         if profiles.activeProfile == nil { profiles.createProfile(name: gameContext.currentGameName() ?? "My Game") }
         guard var profile = profiles.activeProfile else { return }
         profile.subtitlesEnabled = !(profile.subtitlesEnabled ?? false)
         profiles.update(profile)
+        if announce {
+            let on = profile.subtitlesEnabled == true
+            overlay.present(.info(on ? tr("Live subtitles: on") : tr("Live subtitles: off")),
+                            near: settings.captureRegion, autoHide: 1.5)
+        }
     }
 
     func toggleMonitoring() {
@@ -145,6 +164,14 @@ final class AppState: ObservableObject {
             if monitor.state == .paused { await monitor.resume() }
             else if monitor.isMonitoring { await monitor.pause() }
             else { await monitor.start() }
+        }
+    }
+
+    private func registerSubtitleHotkey() {
+        let key = settings.subtitleHotkeyKey, modifiers = settings.hotkeyModifiers
+        guard key != settings.hotkeyKey else { return }       // would collide with Reading Mode
+        if !hotkeys.registerSubtitles(key: key, modifiers: modifiers) {
+            overlay.present(.error(tr("The hotkey %@ could not be registered — another app or macOS may be using it. Pick a different one in Settings.", modifiers.symbols + key)), near: nil)
         }
     }
 

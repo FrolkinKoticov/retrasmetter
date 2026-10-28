@@ -166,7 +166,12 @@ struct SettingsView: View {
                 Slider(value: $settings.subtitleFontSize, in: 14...40, step: 1)
                 Text("\(Int(settings.subtitleFontSize))").frame(width: 50, alignment: .trailing)
             }
+            Toggle(tr("Replace the original text in place"), isOn: $settings.subtitleReplaceInPlace)
             Toggle(tr("Show subtitles above the dialogue"), isOn: $settings.subtitlesAbove)
+                .disabled(settings.subtitleReplaceInPlace)
+            Picker(tr("Live subtitles"), selection: $settings.subtitleHotkeyKey) {
+                ForEach(HotkeyKeys.letters, id: \.self) { Text(settings.hotkeyModifiers.symbols + $0).tag($0) }
+            }
             Text(tr("Only the dialogue area is watched, and only while the text changes. Frames stay in memory and are never saved."))
                 .font(.caption).foregroundStyle(.secondary)
         }

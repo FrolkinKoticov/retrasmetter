@@ -21,6 +21,8 @@ final class FrameProcessor: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
     /// Called off the main thread with a stable frame; the handler must call `done` when finished.
     var onStableFrame: (@Sendable (CGImage, @escaping @Sendable () -> Void) -> Void)?
     var onStop: (@Sendable (Error) -> Void)?
+    /// Called when a noticeable amount of the area changed (text being typed / a new line appearing).
+    var onActivity: (@Sendable () -> Void)?
 
     private let timing: Timing
     private let detector: any FrameChangeDetector
@@ -89,6 +91,10 @@ final class FrameProcessor: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         let changed = signature.map { detector.isMeaningfulChange(from: referenceSignature, to: $0) } ?? true
         lock.unlock()
         guard changed else { return }
+        lock.lock()
+        let amount = signature.map { detector.changedCellCount(from: referenceSignature, to: $0) } ?? 99
+        lock.unlock()
+        if amount >= 6 { onActivity?() }
 
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
         guard let image = ciContext.createCGImage(ciImage, from: ciImage.extent) else { return }
