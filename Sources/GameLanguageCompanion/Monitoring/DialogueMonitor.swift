@@ -269,7 +269,6 @@ final class DialogueMonitor: ObservableObject {
             Task { await refreshNow() }                        // content may have changed while we were not looking
         }
     }
-    }
 
     // MARK: Recognition
 
